@@ -91,14 +91,13 @@ def process_modality_bills(modality_name):
                     status_text.text(f"Processing File {file_idx+1}/{total_files} - Page {page_idx+1}...")
                     page = doc.load_page(page_idx)
                     
-                    # High quality render
                     pix = page.get_pixmap(dpi=200)
                     img_bytes = pix.tobytes("jpeg")
 
                     try:
-                        # Standard model call
+                        # Model updated to gemini-3.8-flash
                         response = client.models.generate_content(
-                            model='gemini-2.5-flash',
+                            model='gemini-3.8-flash',
                             contents=[
                                 types.Part.from_bytes(data=img_bytes, mime_type='image/jpeg'),
                                 prompt_instruction
@@ -113,10 +112,9 @@ def process_modality_bills(modality_name):
                         record = json.loads(raw_txt)
                         extracted_records.append(record)
                     except Exception as err:
-                        # Real error user ko dikhega
                         st.error(f"Error on {file.name} (Page {page_idx+1}): {str(err)}")
                         extracted_records.append({
-                            "Patient Name": "Check Error Message Above",
+                            "Patient Name": "Error Extracting",
                             "Age/Sex": "-",
                             "Bill Number": "-",
                             "CR Number": "-",
@@ -135,7 +133,6 @@ def process_modality_bills(modality_name):
                     "CR Number", "Procedure Name", "Amount", "Date"
                 ]
                 df = pd.DataFrame(extracted_records)
-                # Jo column nahi honge unhe create karke order set karega
                 for col in columns_order:
                     if col not in df.columns:
                         df[col] = "-"
