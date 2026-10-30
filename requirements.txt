@@ -1,6 +1,6 @@
 streamlit
 google-genai
-pypdfium2
+pymupdf
 pillow
 pandas
 openpyxl
