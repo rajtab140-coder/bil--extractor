@@ -4,6 +4,7 @@ from google import genai
 from google.genai import types
 import fitz # PyMuPDF
 import json
+import io
 
 st.set_page_config(page_title="Bill Extractor Pro", layout="wide")
 
@@ -51,67 +52,75 @@ def process_modality_bills(modality_name):
 
     if uploaded_files and api_key:
         if st.button(f"🚀 Extract {modality_name} Bills Data", key=f"btn_{modality_name}"):
-            client = genai.Client(api_key=api_key)
+            try:
+                client = genai.Client(api_key=api_key.strip())
+            except Exception as e:
+                st.error(f"API Key Setup Error: {str(e)}")
+                return
+
             extracted_records = []
             progress_bar = st.progress(0)
             status_text = st.empty()
 
             prompt_instruction = f"""
-            Extract details from this hospital bill specifically for category: '{modality_name}'.
-            Fields required in exact order:
-            1. Patient Name: Full name
-            2. Age/Sex: e.g. 29 YR/FEMALE
-            3. Bill Number: e.g. 999102260402562/1
-            4. CR Number: e.g. 999102604754731
-            5. Procedure Name: Standardize to '{modality_name}' with body region (e.g. '{modality_name} Chest PA' or '{modality_name} Cervical Spine').
-            6. Amount: Billed amount in numbers (e.g. 2125.00)
-            7. Date: Transaction date (e.g. 27-Oct-2026)
+            You are an expert OCR receipt extractor for hospital billing OPD tickets.
+            Carefully read this receipt image and extract these 7 fields:
+            1. Patient Name: Full name of the patient (after 'NAME :')
+            2. Age/Sex: Patient Age and Sex (after 'AGE/SEX :')
+            3. Bill Number: Bill or Receipt Number (after 'BILL No. :')
+            4. CR Number: Complete CR Number (after 'CR No. :')
+            5. Procedure Name: Specifically focus on the investigation related to '{modality_name}'. Include the modality and body region (e.g. 'MRI Cervical Spine', 'X-Ray Chest PA', 'CT Brain', 'OPG'). Do not add noise like 'OPD NORMAL'.
+            6. Amount: Total collected amount in numeric form (e.g. 2125.00).
+            7. Date: Date printed on receipt (e.g. 27-Oct-2026).
 
-            Return ONLY valid JSON:
-            {{
-               "Patient Name": "",
-               "Age/Sex": "",
-               "Bill Number": "",
-               "CR Number": "",
-               "Procedure Name": "",
-               "Amount": "",
-               "Date": ""
-            }}
-            Do not include markdown blocks, backticks, or extra explanation. Return strictly raw JSON.
+            Return ONLY a raw JSON object with keys:
+            "Patient Name", "Age/Sex", "Bill Number", "CR Number", "Procedure Name", "Amount", "Date"
+            Do not include backticks, markdown formatting, or notes.
             """
 
             total_files = len(uploaded_files)
             for file_idx, file in enumerate(uploaded_files):
-                status_text.text(f"Processing File {file_idx+1} of {total_files}: {file.name}")
-                pdf_bytes = file.read()
-                
-                # PyMuPDF se open karein
-                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                file_bytes = file.read()
+                try:
+                    doc = fitz.open(stream=file_bytes, filetype="pdf")
+                except Exception as e:
+                    st.error(f"Error reading file {file.name}: {str(e)}")
+                    continue
 
                 for page_idx in range(len(doc)):
+                    status_text.text(f"Processing File {file_idx+1}/{total_files} - Page {page_idx+1}...")
                     page = doc.load_page(page_idx)
-                    # High quality image render
-                    pix = page.get_pixmap(dpi=150)
-                    image_bytes = pix.tobytes("jpeg")
+                    
+                    # High quality render
+                    pix = page.get_pixmap(dpi=200)
+                    img_bytes = pix.tobytes("jpeg")
 
                     try:
+                        # Standard model call
                         response = client.models.generate_content(
                             model='gemini-2.5-flash',
                             contents=[
-                                types.Part.from_bytes(data=image_bytes, mime_type='image/jpeg'),
+                                types.Part.from_bytes(data=img_bytes, mime_type='image/jpeg'),
                                 prompt_instruction
                             ]
                         )
-                        clean_text = response.text.replace("```json", "").replace("```", "").strip()
-                        record = json.loads(clean_text)
+                        raw_txt = response.text.strip()
+                        if "```json" in raw_txt:
+                            raw_txt = raw_txt.split("```json")[1].split("```")[0].strip()
+                        elif "```" in raw_txt:
+                            raw_txt = raw_txt.split("```")[1].split("```")[0].strip()
+                            
+                        record = json.loads(raw_txt)
                         extracted_records.append(record)
-                    except Exception as e:
+                    except Exception as err:
+                        # Real error user ko dikhega
+                        st.error(f"Error on {file.name} (Page {page_idx+1}): {str(err)}")
                         extracted_records.append({
-                            "Patient Name": f"{file.name} (P{page_idx+1}) Error",
+                            "Patient Name": "Check Error Message Above",
                             "Age/Sex": "-",
                             "Bill Number": "-",
                             "CR Number": "-",
-                            "Procedure Name": f"{modality_name} Error",
+                            "Procedure Name": "-",
                             "Amount": "-",
                             "Date": "-"
                         })
@@ -119,20 +128,23 @@ def process_modality_bills(modality_name):
                 progress_bar.progress((file_idx + 1) / total_files)
 
             status_text.empty()
-            st.success(f"✅ Extraction completed for {len(uploaded_files)} PDF file(s)!")
 
-            columns_order = [
-                "Patient Name", "Age/Sex", "Bill Number", 
-                "CR Number", "Procedure Name", "Amount", "Date"
-            ]
-            df = pd.DataFrame(extracted_records)
-            st.session_state[state_key] = df.reindex(columns=columns_order)
+            if extracted_records:
+                columns_order = [
+                    "Patient Name", "Age/Sex", "Bill Number", 
+                    "CR Number", "Procedure Name", "Amount", "Date"
+                ]
+                df = pd.DataFrame(extracted_records)
+                # Jo column nahi honge unhe create karke order set karega
+                for col in columns_order:
+                    if col not in df.columns:
+                        df[col] = "-"
+                st.session_state[state_key] = df[columns_order]
+                st.success(f"Done processing {len(uploaded_files)} file(s)!")
 
-    # Editable verification table
+    # Table & Download
     if st.session_state[state_key] is not None:
         st.markdown("### ✏️ Verify & Edit Data:")
-        st.caption("Kisi bhi cell par double tap karke data edit ya correct kar sakte hain.")
-        
         edited_df = st.data_editor(
             st.session_state[state_key],
             use_container_width=True,
@@ -142,9 +154,6 @@ def process_modality_bills(modality_name):
 
         st.divider()
         st.markdown("### 📥 Download Section")
-        
-        # Excel buffer
-        import io
         excel_buffer = io.BytesIO()
         with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
             edited_df.to_excel(writer, index=False, sheet_name=modality_name)
