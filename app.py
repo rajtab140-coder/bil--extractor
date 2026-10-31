@@ -5,258 +5,367 @@ from google.genai import types
 import fitz # PyMuPDF
 import json
 import io
+import time
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
-# Page Configuration
-st.set_page_config(page_title="Bill Processor", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Nexus Billing AI | Enterprise",
+    page_icon="⚡",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# --- Custom Styling for Modern Clean UI ---
+# --- MODERN ENTERPRISE CSS ---
 st.markdown("""
 <style>
-    /* Global background */
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Plus Jakarta Sans', sans-serif; }
+    
     .stApp {
-        background-color: #f1f5f9;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #0d1117;
+        color: #e6edf3;
     }
     
-    /* Top Navbar */
-    .top-navbar {
-        background-color: #0f172a;
+    .top-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         padding: 12px 24px;
+        background: rgba(22, 27, 34, 0.8);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid #30363d;
+        border-radius: 12px;
+        margin-bottom: 24px;
+    }
+    
+    .logo-container {
         display: flex;
         align-items: center;
-        gap: 25px;
-        color: #94a3b8;
-        font-size: 14px;
-        font-weight: 500;
-        margin: -6rem -6rem 2rem -6rem;
-    }
-    .top-navbar span.brand {
-        color: #ffffff;
+        gap: 12px;
         font-weight: 700;
-        font-size: 16px;
-        margin-right: 15px;
+        font-size: 1.2rem;
+        color: #58a6ff;
     }
-    .top-navbar span.active {
-        color: #38bdf8;
+    
+    .glass-card {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        margin-bottom: 20px;
+    }
+    
+    .metric-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: #1f6feb22;
+        color: #58a6ff;
+        border: 1px solid #1f6feb44;
     }
 
-    /* Main Container Card */
-    .main-card {
-        background-color: #ffffff;
-        border-radius: 14px;
-        padding: 30px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-        max-width: 850px;
-        margin: 0 auto;
-        border: 1px solid #e2e8f0;
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: transparent;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 48px;
+        border-radius: 10px;
+        padding: 0 20px;
+        background: #21262d;
+        color: #8b949e;
+        border: 1px solid #30363d;
+        font-weight: 600;
+    }
+    .stTabs [aria-selected="true"] {
+        background: #1f6feb !important;
+        color: #ffffff !important;
+        border: 1px solid #388bfd !important;
     }
 
-    /* Primary Process Button */
-    div.stButton > button {
-        background-color: #1d4ed8 !important;
-        color: white !important;
-        font-weight: 600 !important;
-        font-size: 16px !important;
-        padding: 12px 24px !important;
-        border-radius: 8px !important;
-        border: none !important;
-        width: 100% !important;
-        transition: 0.2s;
+    .stButton>button {
+        background: linear-gradient(135deg, #238636, #2ea043);
+        color: white;
+        border: 1px solid #3fb950;
+        border-radius: 10px;
+        font-weight: 600;
+        padding: 10px 24px;
+        box-shadow: 0 4px 12px rgba(46, 160, 67, 0.25);
+        transition: all 0.2s ease;
     }
-    div.stButton > button:hover {
-        background-color: #1e40af !important;
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(46, 160, 67, 0.4);
     }
 </style>
-
-<!-- Top bar -->
-<div class="top-navbar">
-    <span class="brand">📑 Bill Processor</span>
-    <span class="active">Upload</span>
-    <span>Downloads</span>
-</div>
 """, unsafe_allow_html=True)
 
-# --- Authentication ---
+# --- AUTHENTICATION ---
 APP_PASSWORD = "raj123"
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
-    st.subheader("🔒 Login Required")
-    pwd_input = st.text_input("Enter Password:", type="password")
-    if st.button("Login"):
-        if pwd_input == APP_PASSWORD:
-            st.session_state.authenticated = True
-            st.rerun()
-        else:
-            st.error("Incorrect Password!")
-    st.markdown("</div>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='glass-card' style='text-align: center;'>
+            <h2 style='color:#58a6ff; margin-bottom: 8px;'>⚡ Nexus Intelligence</h2>
+            <p style='color:#8b949e; font-size: 0.9rem;'>Enterprise Hospital Bill OCR & Pipeline Processor</p>
+        </div>
+        """, unsafe_allow_html=True)
+        pwd = st.text_input("Security Access Key / Password", type="password")
+        if st.button("Unlock Dashboard", use_container_width=True):
+            if pwd == APP_PASSWORD:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Access Denied: Invalid Security Key")
     st.stop()
 
-# API Key Sidebar Configuration
-api_key = st.sidebar.text_input("Gemini API Key:", type="password")
-if st.sidebar.button("Logout"):
-    st.session_state.authenticated = False
-    st.rerun()
+# --- SESSION STATE INITIALIZATION ---
+if "jobs_history" not in st.session_state:
+    st.session_state.jobs_history = []
+if "active_data" not in st.session_state:
+    st.session_state.active_data = None
 
-# --- Main Upload Card Container ---
-st.markdown("<div class='main-card'>", unsafe_allow_html=True)
+# --- TOP NAVIGATION BAR ---
+st.markdown("""
+<div class='top-nav'>
+    <div class='logo-container'>
+        <span style='font-size: 1.5rem;'>⚡</span>
+        <span>Nexus Billing <span style='font-size: 0.8rem; background: #238636; padding: 2px 8px; border-radius: 6px; color: white;'>PRO 3.8</span></span>
+    </div>
+    <div style='display:flex; gap:16px; align-items:center;'>
+        <span class='metric-badge'>🟢 Gemini Engine: 3.8 Flash</span>
+        <span class='metric-badge'>🛡️ Rate-Limit Shield: Active</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown("<h2 style='color: #0f172a; margin-top: 0;'>📑 Upload Bills</h2>", unsafe_allow_html=True)
+# Sidebar Settings
+with st.sidebar:
+    st.markdown("### ⚙️ Engine Parameters")
+    api_key = st.text_input("Gemini API Key", type="password", help="Personal AI Studio API Key")
+    st.markdown("---")
+    st.markdown("**Processing Metrics**")
+    st.caption("Paced Concurrency: 2 Parallel Threads")
+    st.caption("Buffer Resolution: 120 DPI")
+    st.caption("Engine: gemini-3.8-flash")
+    if st.button("Logout Session"):
+        st.session_state.authenticated = False
+        st.rerun()
 
-# 1. Bill Type Selector (Radio horizontal)
-st.markdown("<p style='font-weight:600; color: #475569; margin-bottom: 5px;'>Bill Type</p>", unsafe_allow_html=True)
-selected_bill_type = st.radio(
-    "Bill Type",
-    ["CT", "MRI", "X-Ray", "OPG", "USG"],
-    horizontal=True,
-    label_visibility="collapsed"
-)
+# --- MAIN DASHBOARD TABS ---
+nav_tab1, nav_tab2 = st.tabs(["🚀 Ingestion & Processing Hub", "📦 Downloads & Job History"])
 
-# 2. AI Engine Selection
-st.markdown("<p style='font-weight:600; color: #475569; margin-top: 15px; margin-bottom: 5px;'>AI Engine</p>", unsafe_allow_html=True)
-selected_engine = st.radio(
-    "AI Engine",
-    [
-        "⚡ Gemini 3.8 Flash (High Speed & Precise Extraction)",
-        "🧠 Claude Opus (Simulated)",
-        "🚀 Grok (Simulated)"
-    ],
-    index=0,
-    label_visibility="collapsed"
-)
-
-# 3. Drag & Drop PDF Upload Area
-st.markdown("<p style='font-weight:600; color: #475569; margin-top: 15px; margin-bottom: 5px;'>Upload Files</p>", unsafe_allow_html=True)
-uploaded_files = st.file_uploader(
-    "Drag & drop PDFs here or browse (Select multiple PDFs at once)",
-    type=["pdf"],
-    accept_multiple_files=True,
-    label_visibility="collapsed"
-)
-
-# Process Button
-process_btn = st.button("🚀 Upload & Process", use_container_width=True)
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-# --- Parallel Processing Logic ---
-def process_single_page(client, img_bytes, prompt_instruction, label):
-    try:
-        response = client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=[
-                types.Part.from_bytes(data=img_bytes, mime_type='image/jpeg'),
-                prompt_instruction
-            ]
-        )
-        raw_txt = response.text.strip()
-        if "```json" in raw_txt:
-            raw_txt = raw_txt.split("```json")[1].split("```")[0].strip()
-        elif "```" in raw_txt:
-            raw_txt = raw_txt.split("```")[1].split("```")[0].strip()
-        return json.loads(raw_txt)
-    except Exception as err:
-        return {
-            "Patient Name": f"{label} Error",
-            "Age/Sex": "-",
-            "Bill Number": "-",
-            "CR Number": "-",
-            "Procedure Name": "-",
-            "Amount": "-",
-            "Date": "-"
-        }
-
-if process_btn:
-    if not api_key:
-        st.warning("⚠️ Please provide your Gemini API Key in the left sidebar to start processing.")
-    elif not uploaded_files:
-        st.warning("⚠️ Please select at least one PDF bill file.")
-    else:
+# Parallel Worker with Automatic Rate-Limit Retry
+def process_single_page(client, img_bytes, prompt, label):
+    for attempt in range(4):
         try:
-            client = genai.Client(api_key=api_key.strip())
+            response = client.models.generate_content(
+                model='gemini-3.8-flash',
+                contents=[
+                    types.Part.from_bytes(data=img_bytes, mime_type='image/jpeg'),
+                    prompt
+                ]
+            )
+            raw = response.text.strip()
+            if "```json" in raw:
+                raw = raw.split("```json")[1].split("```")[0].strip()
+            elif "```" in raw:
+                raw = raw.split("```")[1].split("```")[0].strip()
+            return json.loads(raw)
         except Exception as e:
-            st.error(f"API Client Init Error: {str(e)}")
-            st.stop()
+            err_str = str(e).lower()
+            if "429" in err_str or "quota" in err_str or "resource" in err_str:
+                time.sleep(2 + (attempt * 2.5))
+                continue
+            time.sleep(1)
+            
+    return {
+        "Patient Name": f"Verification Required: {label}",
+        "Age/Sex": "-",
+        "Bill Number": "-",
+        "CR Number": "-",
+        "Procedure Name": "-",
+        "Amount": "-",
+        "Date": "-"
+    }
 
-        prompt_instruction = f"""
-        Extract details from this hospital bill specifically for category: '{selected_bill_type}'.
-        Strict fields order:
-        1. Patient Name: Full name (after 'NAME :')
-        2. Age/Sex: Patient Age and Sex (after 'AGE/SEX :')
-        3. Bill Number: Bill Number (after 'BILL No. :')
-        4. CR Number: CR Number (after 'CR No. :')
-        5. Procedure Name: Standardize to '{selected_bill_type}' with body region (e.g. '{selected_bill_type} Cervical Spine').
-        6. Amount: Total collected numeric amount (e.g. 2125.00).
-        7. Date: Date printed (e.g. 27-Oct-2026).
+# ================= TAB 1: UPLOAD & PROCESS =================
+with nav_tab1:
+    col_left, col_right = st.columns([1, 1], gap="large")
+    
+    with col_left:
+        st.markdown("#### 1. Select Modality")
+        modality = st.radio(
+            "Modality Category",
+            ["X-Ray", "CT Scan", "MRI", "OPG", "USG"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+        
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+        st.markdown("#### 2. AI Processing Engine")
+        ai_engine = st.selectbox(
+            "AI Engine Selection",
+            ["Gemini 3.8 Flash (Auto-Rate Protected & High Speed)", "Precision OCR Engine"],
+            label_visibility="collapsed"
+        )
+        
+    with col_right:
+        st.markdown("#### 3. Upload Hospital PDF Bills")
+        uploaded_files = st.file_uploader(
+            "Drop PDF Bills here",
+            type=["pdf"],
+            accept_multiple_files=True,
+            help="Upload single or multiple batch PDFs (e.g. 50 pages)"
+        )
 
-        Return ONLY raw JSON with keys:
-        "Patient Name", "Age/Sex", "Bill Number", "CR Number", "Procedure Name", "Amount", "Date"
-        """
+    st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+    
+    if uploaded_files:
+        c1, c2 = st.columns([3, 1])
+        with c1:
+            st.info(f"📁 {len(uploaded_files)} PDF File(s) ready for extraction under **{modality}**")
+        with c2:
+            start_process = st.button("⚡ Start Safe Processing", use_container_width=True)
+            
+        if start_process:
+            if not api_key:
+                st.error("Sidebar me apni Gemini API Key enter karein pehle.")
+            else:
+                client = genai.Client(api_key=api_key.strip())
+                all_tasks = []
+                
+                with st.spinner("Extracting PDF Pages..."):
+                    for file in uploaded_files:
+                        pdf_data = file.read()
+                        try:
+                            doc = fitz.open(stream=pdf_data, filetype="pdf")
+                            for pno in range(len(doc)):
+                                pix = doc.load_page(pno).get_pixmap(dpi=120)
+                                all_tasks.append((pix.tobytes("jpeg"), f"{file.name} (P{pno+1})"))
+                        except Exception as e:
+                            st.error(f"Cannot read {file.name}: {e}")
 
-        all_page_tasks = []
-        with st.spinner("Extracting pages..."):
-            for file in uploaded_files:
-                file_bytes = file.read()
-                try:
-                    doc = fitz.open(stream=file_bytes, filetype="pdf")
-                    for page_idx in range(len(doc)):
-                        page = doc.load_page(page_idx)
-                        pix = page.get_pixmap(dpi=120)
-                        img_bytes = pix.tobytes("jpeg")
-                        all_page_tasks.append((img_bytes, f"{file.name} (P{page_idx+1})"))
-                except Exception as e:
-                    st.error(f"Error opening {file.name}: {str(e)}")
+                total_bills = len(all_tasks)
+                prompt = f"""
+                You are a hospital OPD billing receipt extractor for '{modality}'.
+                Extract strictly the following JSON object:
+                {{
+                   "Patient Name": "Full Name",
+                   "Age/Sex": "Age and Sex (e.g. 29 YR/FEMALE)",
+                   "Bill Number": "Bill number",
+                   "CR Number": "CR number",
+                   "Procedure Name": "Standardize to '{modality}' with region examined (e.g. '{modality} Chest PA')",
+                   "Amount": "Total amount in numbers (e.g. 2125.00)",
+                   "Date": "Date of transaction"
+                }}
+                Return ONLY valid JSON without markdown tags.
+                """
 
-        total_pages = len(all_page_tasks)
-        st.info(f"⚡ Processing {total_pages} bill pages in parallel...")
+                progress_bar = st.progress(0)
+                status = st.empty()
+                status.info(f"Processing {total_bills} bills via Gemini 3.8 (Smooth Protected Execution)...")
 
-        extracted_records = []
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [
-                executor.submit(process_single_page, client, item[0], prompt_instruction, item[1])
-                for item in all_page_tasks
-            ]
-            for future in futures:
-                extracted_records.append(future.result())
+                records = []
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    futures = [
+                        executor.submit(process_single_page, client, task[0], prompt, task[1])
+                        for task in all_tasks
+                    ]
+                    for idx, future in enumerate(futures):
+                        records.append(future.result())
+                        progress_bar.progress((idx + 1) / total_bills)
+                        time.sleep(0.3)
 
-        columns_order = [
-            "Patient Name", "Age/Sex", "Bill Number", 
-            "CR Number", "Procedure Name", "Amount", "Date"
-        ]
-        df = pd.DataFrame(extracted_records)
-        for col in columns_order:
-            if col not in df.columns:
-                df[col] = "-"
-        st.session_state["extracted_data"] = df[columns_order]
-        st.success(f"✅ Successfully processed {total_pages} bills!")
+                status.empty()
+                progress_bar.empty()
 
-# --- Editable Data Table & Excel Export ---
-if "extracted_data" in st.session_state and st.session_state["extracted_data"] is not None:
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
-    st.subheader("✏️ Review & Edit Data")
-    st.caption("Double-click any cell to make manual corrections.")
+                columns = ["Patient Name", "Age/Sex", "Bill Number", "CR Number", "Procedure Name", "Amount", "Date"]
+                df_result = pd.DataFrame(records)
+                for c in columns:
+                    if c not in df_result.columns:
+                        df_result[c] = "-"
+                df_result = df_result[columns]
+                
+                st.session_state.active_data = df_result
+                
+                job_id = f"JOB-{len(st.session_state.jobs_history)+1:03d}"
+                st.session_state.jobs_history.insert(0, {
+                    "id": job_id,
+                    "date": datetime.now().strftime("%d-%b %H:%M"),
+                    "type": modality,
+                    "count": total_bills,
+                    "data": df_result
+                })
+                st.success(f"Successfully processed {total_bills} bills!")
 
-    edited_df = st.data_editor(
-        st.session_state["extracted_data"],
-        use_container_width=True,
-        num_rows="dynamic"
-    )
+    # Live Verifier Table
+    if st.session_state.active_data is not None:
+        st.markdown("---")
+        st.markdown("### ✏️ Interactive Data Verification Grid")
+        st.caption("Double-click any box to correct errors before final download.")
+        
+        edited_df = st.data_editor(
+            st.session_state.active_data,
+            use_container_width=True,
+            num_rows="dynamic"
+        )
+        
+        col_d1, col_d2 = st.columns([1, 3])
+        with col_d1:
+            excel_buf = io.BytesIO()
+            with pd.ExcelWriter(excel_buf, engine='openpyxl') as writer:
+                edited_df.to_excel(writer, index=False, sheet_name=modality)
+                
+            st.download_button(
+                label=f"📥 Download {modality} Excel Sheet (.xlsx)",
+                data=excel_buf.getvalue(),
+                file_name=f"{modality}_Verified_Summary.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
 
-    excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-        edited_df.to_excel(writer, index=False, sheet_name=selected_bill_type)
-
-    st.download_button(
-        label=f"⬇️ Download {selected_bill_type} Excel File (.xlsx)",
-        data=excel_buffer.getvalue(),
-        file_name=f"{selected_bill_type}_Bills_Summary.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
+# ================= TAB 2: DOWNLOADS & JOB HISTORY =================
+with nav_tab2:
+    st.markdown("### 📦 Processing Jobs & Export Registry")
+    
+    if not st.session_state.jobs_history:
+        st.info("No processing jobs in this session yet. Upload and extract bills to see records here.")
+    else:
+        for job in st.session_state.jobs_history:
+            st.markdown(f"""
+            <div style='background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;'>
+                <div>
+                    <span style='color:#58a6ff; font-weight:700; margin-right:12px;'>{job['id']}</span>
+                    <span style='background:#23863622; color:#3fb950; border:1px solid #238636; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-right:12px;'>Completed</span>
+                    <span style='color:#e6edf3; font-weight:600;'>{job['type']} Bills</span>
+                    <span style='color:#8b949e; font-size:0.85rem; margin-left:12px;'>({job['count']} pages extracted • {job['date']})</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            c_btn1, c_btn2 = st.columns([1, 5])
+            with c_btn1:
+                buf = io.BytesIO()
+                with pd.ExcelWriter(buf, engine='openpyxl') as writer:
+                    job['data'].to_excel(writer, index=False, sheet_name=job['type'])
+                st.download_button(
+                    label=f"⬇️ Download Excel",
+                    data=buf.getvalue(),
+                    file_name=f"{job['id']}_{job['type']}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"dl_{job['id']}"
+                )
 
