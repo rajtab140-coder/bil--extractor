@@ -7,101 +7,102 @@ import json
 import io
 import time
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor
 
 st.set_page_config(
-    page_title="Nexus Billing AI | Enterprise",
+    page_title="Nexus Enterprise Billing Hub",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- MODERN ENTERPRISE CSS ---
+# --- MODERN ULTRA-CLEAN UI ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     * { font-family: 'Plus Jakarta Sans', sans-serif; }
     
     .stApp {
-        background-color: #0d1117;
-        color: #e6edf3;
+        background-color: #0b0f17;
+        color: #f0f6fc;
     }
     
+    /* Top Bar */
     .top-nav {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 12px 24px;
-        background: rgba(22, 27, 34, 0.8);
-        backdrop-filter: blur(12px);
-        border-bottom: 1px solid #30363d;
+        padding: 14px 24px;
+        background: #161b26;
+        border: 1px solid #232c3d;
         border-radius: 12px;
         margin-bottom: 24px;
     }
     
-    .logo-container {
+    .logo-box {
         display: flex;
         align-items: center;
-        gap: 12px;
-        font-weight: 700;
-        font-size: 1.2rem;
-        color: #58a6ff;
-    }
-    
-    .glass-card {
-        background: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-        margin-bottom: 20px;
-    }
-    
-    .metric-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        background: #1f6feb22;
-        color: #58a6ff;
-        border: 1px solid #1f6feb44;
+        gap: 10px;
+        font-weight: 800;
+        font-size: 1.25rem;
+        color: #38bdf8;
     }
 
+    /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: transparent;
+        gap: 12px;
+        border-bottom: 1px solid #232c3d;
+        padding-bottom: 8px;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 48px;
-        border-radius: 10px;
-        padding: 0 20px;
-        background: #21262d;
-        color: #8b949e;
-        border: 1px solid #30363d;
+        height: 44px;
+        border-radius: 8px;
+        padding: 0 24px;
+        background: #161b26;
+        color: #94a3b8;
+        border: 1px solid #232c3d;
         font-weight: 600;
     }
     .stTabs [aria-selected="true"] {
-        background: #1f6feb !important;
+        background: #2563eb !important;
         color: #ffffff !important;
-        border: 1px solid #388bfd !important;
+        border: 1px solid #3b82f6 !important;
+    }
+
+    /* Cards */
+    .job-card {
+        background: #141a24;
+        border: 1px solid #232c3d;
+        border-radius: 12px;
+        padding: 18px 20px;
+        margin-bottom: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .badge-completed {
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ade80;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+    
+    .badge-processing {
+        background: rgba(234, 179, 8, 0.15);
+        color: #facc15;
+        border: 1px solid rgba(234, 179, 8, 0.3);
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
     }
 
     .stButton>button {
-        background: linear-gradient(135deg, #238636, #2ea043);
-        color: white;
-        border: 1px solid #3fb950;
-        border-radius: 10px;
+        border-radius: 8px;
         font-weight: 600;
-        padding: 10px 24px;
-        box-shadow: 0 4px 12px rgba(46, 160, 67, 0.25);
-        transition: all 0.2s ease;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 18px rgba(46, 160, 67, 0.4);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -113,62 +114,72 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 1.8, 1])
     with col2:
         st.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
         st.markdown("""
-        <div class='glass-card' style='text-align: center;'>
-            <h2 style='color:#58a6ff; margin-bottom: 8px;'>⚡ Nexus Intelligence</h2>
-            <p style='color:#8b949e; font-size: 0.9rem;'>Enterprise Hospital Bill OCR & Pipeline Processor</p>
+        <div style='background: #161b26; border: 1px solid #232c3d; border-radius: 16px; padding: 32px; text-align: center;'>
+            <h2 style='color:#38bdf8; margin-bottom: 6px;'>⚡ Nexus Pro Engine</h2>
+            <p style='color:#94a3b8; font-size: 0.9rem;'>Industrial Hospital Bill Batch Pipeline</p>
         </div>
         """, unsafe_allow_html=True)
-        pwd = st.text_input("Security Access Key / Password", type="password")
-        if st.button("Unlock Dashboard", use_container_width=True):
+        pwd = st.text_input("Enter Dashboard Passkey:", type="password")
+        if st.button("Authenticate System", use_container_width=True):
             if pwd == APP_PASSWORD:
                 st.session_state.authenticated = True
                 st.rerun()
             else:
-                st.error("Access Denied: Invalid Security Key")
+                st.error("Access Denied: Invalid Security Passkey")
     st.stop()
 
-# --- SESSION STATE INITIALIZATION ---
-if "jobs_history" not in st.session_state:
-    st.session_state.jobs_history = []
-if "active_data" not in st.session_state:
-    st.session_state.active_data = None
+# --- STATE STORAGE ---
+if "jobs_list" not in st.session_state:
+    st.session_state.jobs_list = []
+if "inspect_job" not in st.session_state:
+    st.session_state.inspect_job = None
 
-# --- TOP NAVIGATION BAR ---
+# Top Nav
 st.markdown("""
 <div class='top-nav'>
-    <div class='logo-container'>
-        <span style='font-size: 1.5rem;'>⚡</span>
-        <span>Nexus Billing <span style='font-size: 0.8rem; background: #238636; padding: 2px 8px; border-radius: 6px; color: white;'>PRO 3.8</span></span>
+    <div class='logo-box'>
+        <span>⚡ Nexus OCR Engine</span>
+        <span style='font-size: 0.75rem; background: #0284c7; color: white; padding: 2px 8px; border-radius: 4px;'>V3.8 BATCH</span>
     </div>
-    <div style='display:flex; gap:16px; align-items:center;'>
-        <span class='metric-badge'>🟢 Gemini Engine: 3.8 Flash</span>
-        <span class='metric-badge'>🛡️ Rate-Limit Shield: Active</span>
+    <div style='display: flex; gap: 12px; font-size: 0.85rem; color: #94a3b8;'>
+        <span>🟢 Engine: <b>gemini-3.8-flash</b></span>
+        <span>🛡️ Quota Safety: <b>Active</b></span>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar Settings
 with st.sidebar:
-    st.markdown("### ⚙️ Engine Parameters")
-    api_key = st.text_input("Gemini API Key", type="password", help="Personal AI Studio API Key")
+    st.markdown("### 🔑 Engine Authentication")
+    api_key = st.text_input("Gemini API Key:", type="password", help="Personal AI Studio API Key")
     st.markdown("---")
-    st.markdown("**Processing Metrics**")
-    st.caption("Paced Concurrency: 2 Parallel Threads")
-    st.caption("Buffer Resolution: 120 DPI")
-    st.caption("Engine: gemini-3.8-flash")
-    if st.button("Logout Session"):
+    st.caption("Auto-pacing: Active (Prevents API 429 block)")
+    st.caption("Memory Guard: Dynamic Page Stream")
+    if st.button("Logout"):
         st.session_state.authenticated = False
         st.rerun()
 
-# --- MAIN DASHBOARD TABS ---
-nav_tab1, nav_tab2 = st.tabs(["🚀 Ingestion & Processing Hub", "📦 Downloads & Job History"])
+main_tab1, main_tab2 = st.tabs(["📤 Upload & Run Pipeline", "📥 Downloads & Batch Jobs"])
 
-# Parallel Worker with Automatic Rate-Limit Retry
-def process_single_page(client, img_bytes, prompt, label):
+# Core Gemini Extraction with Rate Limiter
+def extract_single_receipt(client, img_bytes, modality_type, label):
+    prompt = f"""
+    Extract data from this hospital OPD bill strictly for modality: '{modality_type}'.
+    Return raw JSON with exactly these keys:
+    {{
+       "Patient Name": "Full Name",
+       "Age/Sex": "e.g. 29 YR/FEMALE",
+       "Bill Number": "Bill No",
+       "CR Number": "CR No",
+       "Procedure Name": "{modality_type} with examined body region",
+       "Amount": "Total collected numeric amount",
+       "Date": "Receipt Date"
+    }}
+    Do not include markdown blocks or extra text.
+    """
     for attempt in range(4):
         try:
             response = client.models.generate_content(
@@ -178,21 +189,21 @@ def process_single_page(client, img_bytes, prompt, label):
                     prompt
                 ]
             )
-            raw = response.text.strip()
-            if "```json" in raw:
-                raw = raw.split("```json")[1].split("```")[0].strip()
-            elif "```" in raw:
-                raw = raw.split("```")[1].split("```")[0].strip()
-            return json.loads(raw)
+            txt = response.text.strip()
+            if "```json" in txt:
+                txt = txt.split("```json")[1].split("```")[0].strip()
+            elif "```" in txt:
+                txt = txt.split("```")[1].split("```")[0].strip()
+            return json.loads(txt)
         except Exception as e:
-            err_str = str(e).lower()
-            if "429" in err_str or "quota" in err_str or "resource" in err_str:
-                time.sleep(2 + (attempt * 2.5))
+            err = str(e).lower()
+            if "429" in err or "quota" in err or "resource" in err:
+                time.sleep(3 + attempt * 2)
                 continue
             time.sleep(1)
             
     return {
-        "Patient Name": f"Verification Required: {label}",
+        "Patient Name": f"Check: {label}",
         "Age/Sex": "-",
         "Bill Number": "-",
         "CR Number": "-",
@@ -202,170 +213,170 @@ def process_single_page(client, img_bytes, prompt, label):
     }
 
 # ================= TAB 1: UPLOAD & PROCESS =================
-with nav_tab1:
-    col_left, col_right = st.columns([1, 1], gap="large")
-    
-    with col_left:
-        st.markdown("#### 1. Select Modality")
+with main_tab1:
+    c_left, c_right = st.columns([1, 1], gap="large")
+    with c_left:
+        st.markdown("#### 1. Select Bill Modality")
         modality = st.radio(
-            "Modality Category",
+            "Modality",
             ["X-Ray", "CT Scan", "MRI", "OPG", "USG"],
             horizontal=True,
             label_visibility="collapsed"
         )
         
         st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-        st.markdown("#### 2. AI Processing Engine")
-        ai_engine = st.selectbox(
-            "AI Engine Selection",
-            ["Gemini 3.8 Flash (Auto-Rate Protected & High Speed)", "Precision OCR Engine"],
+        st.markdown("#### 2. AI Model Execution")
+        st.selectbox(
+            "Model",
+            ["Gemini 3.8 Flash (High-Throughput Batch Engine)"],
             label_visibility="collapsed"
         )
         
-    with col_right:
-        st.markdown("#### 3. Upload Hospital PDF Bills")
+    with c_right:
+        st.markdown("#### 3. Upload Hospital Bills (Bulk PDF)")
         uploaded_files = st.file_uploader(
-            "Drop PDF Bills here",
+            "Select PDFs (e.g. 50 bills / 20MB file)",
             type=["pdf"],
-            accept_multiple_files=True,
-            help="Upload single or multiple batch PDFs (e.g. 50 pages)"
+            accept_multiple_files=True
         )
 
     st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
     
     if uploaded_files:
-        c1, c2 = st.columns([3, 1])
-        with c1:
-            st.info(f"📁 {len(uploaded_files)} PDF File(s) ready for extraction under **{modality}**")
-        with c2:
-            start_process = st.button("⚡ Start Safe Processing", use_container_width=True)
-            
-        if start_process:
+        col_run1, col_run2 = st.columns([3, 1])
+        with col_run1:
+            st.info(f"📁 **{len(uploaded_files)} file(s)** ready for batch execution under **{modality}**")
+        with col_run2:
+            trigger = st.button("⚡ Start High-Volume Batch", use_container_width=True)
+
+        if trigger:
             if not api_key:
-                st.error("Sidebar me apni Gemini API Key enter karein pehle.")
+                st.error("Pehle sidebar me Gemini API Key enter karein!")
             else:
                 client = genai.Client(api_key=api_key.strip())
-                all_tasks = []
+                start_time = time.time()
                 
-                with st.spinner("Extracting PDF Pages..."):
-                    for file in uploaded_files:
-                        pdf_data = file.read()
-                        try:
-                            doc = fitz.open(stream=pdf_data, filetype="pdf")
-                            for pno in range(len(doc)):
-                                pix = doc.load_page(pno).get_pixmap(dpi=120)
-                                all_tasks.append((pix.tobytes("jpeg"), f"{file.name} (P{pno+1})"))
-                        except Exception as e:
-                            st.error(f"Cannot read {file.name}: {e}")
+                # Pre-calculate total pages
+                total_pages = 0
+                for f in uploaded_files:
+                    doc_temp = fitz.open(stream=f.read(), filetype="pdf")
+                    total_pages += len(doc_temp)
+                    f.seek(0)
+                    doc_temp.close()
 
-                total_bills = len(all_tasks)
-                prompt = f"""
-                You are a hospital OPD billing receipt extractor for '{modality}'.
-                Extract strictly the following JSON object:
-                {{
-                   "Patient Name": "Full Name",
-                   "Age/Sex": "Age and Sex (e.g. 29 YR/FEMALE)",
-                   "Bill Number": "Bill number",
-                   "CR Number": "CR number",
-                   "Procedure Name": "Standardize to '{modality}' with region examined (e.g. '{modality} Chest PA')",
-                   "Amount": "Total amount in numbers (e.g. 2125.00)",
-                   "Date": "Date of transaction"
-                }}
-                Return ONLY valid JSON without markdown tags.
-                """
-
-                progress_bar = st.progress(0)
-                status = st.empty()
-                status.info(f"Processing {total_bills} bills via Gemini 3.8 (Smooth Protected Execution)...")
-
-                records = []
-                with ThreadPoolExecutor(max_workers=2) as executor:
-                    futures = [
-                        executor.submit(process_single_page, client, task[0], prompt, task[1])
-                        for task in all_tasks
-                    ]
-                    for idx, future in enumerate(futures):
-                        records.append(future.result())
-                        progress_bar.progress((idx + 1) / total_bills)
-                        time.sleep(0.3)
-
-                status.empty()
-                progress_bar.empty()
-
-                columns = ["Patient Name", "Age/Sex", "Bill Number", "CR Number", "Procedure Name", "Amount", "Date"]
-                df_result = pd.DataFrame(records)
-                for c in columns:
-                    if c not in df_result.columns:
-                        df_result[c] = "-"
-                df_result = df_result[columns]
+                progress_slot = st.empty()
+                status_slot = st.empty()
+                prog_bar = progress_slot.progress(0)
                 
-                st.session_state.active_data = df_result
+                extracted_data = []
+                page_counter = 0
+
+                # Single-page sequential stream (Zero memory leak, zero timeout crash)
+                for f in uploaded_files:
+                    doc = fitz.open(stream=f.read(), filetype="pdf")
+                    for pno in range(len(doc)):
+                        page_counter += 1
+                        elapsed = int(time.time() - start_time)
+                        status_slot.markdown(
+                            f"⏳ **Processing Page {page_counter}/{total_pages}** ({f.name}) • Elapsed Time: `{elapsed}s`"
+                        )
+                        
+                        page = doc.load_page(pno)
+                        pix = page.get_pixmap(dpi=110)
+                        img_bytes = pix.tobytes("jpeg")
+                        pix = None # Free RAM
+                        
+                        rec = extract_single_receipt(client, img_bytes, modality, f"{f.name} P{pno+1}")
+                        extracted_data.append(rec)
+                        
+                        prog_bar.progress(page_counter / total_pages)
+                        time.sleep(0.4) # Google API standard rate window
+                        
+                    doc.close()
+
+                prog_bar.empty()
+                progress_slot.empty()
+                status_slot.empty()
                 
-                job_id = f"JOB-{len(st.session_state.jobs_history)+1:03d}"
-                st.session_state.jobs_history.insert(0, {
+                duration_sec = int(time.time() - start_time)
+                mins = duration_sec // 60
+                secs = duration_sec % 60
+                time_str = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
+
+                columns_order = ["Patient Name", "Age/Sex", "Bill Number", "CR Number", "Procedure Name", "Amount", "Date"]
+                df_out = pd.DataFrame(extracted_data)
+                for col in columns_order:
+                    if col not in df_out.columns:
+                        df_out[col] = "-"
+                df_out = df_out[columns_order]
+
+                # Store into Job History
+                job_id = f"JOB-{len(st.session_state.jobs_list)+1:03d}"
+                st.session_state.jobs_list.insert(0, {
                     "id": job_id,
-                    "date": datetime.now().strftime("%d-%b %H:%M"),
-                    "type": modality,
-                    "count": total_bills,
-                    "data": df_result
+                    "file_name": uploaded_files[0].name if len(uploaded_files) == 1 else f"{len(uploaded_files)} PDF Files",
+                    "date": datetime.now().strftime("%d %b %H:%M"),
+                    "modality": modality,
+                    "pages": f"{total_pages}/{total_pages}",
+                    "time_taken": time_str,
+                    "data": df_out
                 })
-                st.success(f"Successfully processed {total_bills} bills!")
+                st.success(f"✅ Batch {job_id} Completed: {total_pages} bills processed in {time_str}!")
+                st.session_state.inspect_job = job_id
 
-    # Live Verifier Table
-    if st.session_state.active_data is not None:
-        st.markdown("---")
-        st.markdown("### ✏️ Interactive Data Verification Grid")
-        st.caption("Double-click any box to correct errors before final download.")
-        
-        edited_df = st.data_editor(
-            st.session_state.active_data,
-            use_container_width=True,
-            num_rows="dynamic"
-        )
-        
-        col_d1, col_d2 = st.columns([1, 3])
-        with col_d1:
-            excel_buf = io.BytesIO()
-            with pd.ExcelWriter(excel_buf, engine='openpyxl') as writer:
-                edited_df.to_excel(writer, index=False, sheet_name=modality)
-                
-            st.download_button(
-                label=f"📥 Download {modality} Excel Sheet (.xlsx)",
-                data=excel_buf.getvalue(),
-                file_name=f"{modality}_Verified_Summary.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-
-# ================= TAB 2: DOWNLOADS & JOB HISTORY =================
-with nav_tab2:
-    st.markdown("### 📦 Processing Jobs & Export Registry")
+# ================= TAB 2: DOWNLOADS & JOBS REGISTRY =================
+with main_tab2:
+    st.markdown("### 📥 Completed Processing Jobs")
     
-    if not st.session_state.jobs_history:
-        st.info("No processing jobs in this session yet. Upload and extract bills to see records here.")
+    if not st.session_state.jobs_list:
+        st.info("No processing jobs found. Run a batch from the upload tab.")
     else:
-        for job in st.session_state.jobs_history:
-            st.markdown(f"""
-            <div style='background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;'>
-                <div>
-                    <span style='color:#58a6ff; font-weight:700; margin-right:12px;'>{job['id']}</span>
-                    <span style='background:#23863622; color:#3fb950; border:1px solid #238636; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-right:12px;'>Completed</span>
-                    <span style='color:#e6edf3; font-weight:600;'>{job['type']} Bills</span>
-                    <span style='color:#8b949e; font-size:0.85rem; margin-left:12px;'>({job['count']} pages extracted • {job['date']})</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+        for job in st.session_state.jobs_list:
+            c_info, c_action = st.columns([3, 2])
             
-            c_btn1, c_btn2 = st.columns([1, 5])
-            with c_btn1:
-                buf = io.BytesIO()
-                with pd.ExcelWriter(buf, engine='openpyxl') as writer:
-                    job['data'].to_excel(writer, index=False, sheet_name=job['type'])
-                st.download_button(
-                    label=f"⬇️ Download Excel",
-                    data=buf.getvalue(),
-                    file_name=f"{job['id']}_{job['type']}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"dl_{job['id']}"
-                )
+            with c_info:
+                st.markdown(f"""
+                <div style='padding: 8px 0;'>
+                    <b style='color:#38bdf8; font-size:1.05rem;'>{job['id']}</b> • 
+                    <span class='badge-completed'>Completed</span> • 
+                    <b style='color:#f8fafc;'>{job['file_name']}</b>
+                    <div style='color:#94a3b8; font-size:0.85rem; margin-top:4px;'>
+                        Category: <b>{job['modality']}</b> | Progress: <b>{job['pages']} pages</b> | Duration: <b>{job['time_taken']}</b> | Time: {job['date']}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with c_action:
+                btn_col1, btn_col2 = st.columns([1, 1.2])
+                with btn_col1:
+                    if st.button("👁️ View / Edit", key=f"view_{job['id']}", use_container_width=True):
+                        st.session_state.inspect_job = job['id']
+                with btn_col2:
+                    excel_buffer = io.BytesIO()
+                    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                        job['data'].to_excel(writer, index=False, sheet_name=job['modality'])
+                    st.download_button(
+                        label="⬇️ Excel (.xlsx)",
+                        data=excel_buffer.getvalue(),
+                        file_name=f"{job['id']}_{job['modality']}_Summary.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"dl_{job['id']}",
+                        use_container_width=True
+                    )
+            st.divider()
+
+    # Active Inspector Grid
+    if st.session_state.inspect_job:
+        target_job = next((j for j in st.session_state.jobs_list if j['id'] == st.session_state.inspect_job), None)
+        if target_job:
+            st.markdown(f"#### ✏️ Live Inspection & Verification: `{target_job['id']}` ({target_job['modality']})")
+            st.caption("You can click and edit any incorrect value directly below. Changes will be saved to Excel.")
+            
+            edited_data = st.data_editor(
+                target_job['data'],
+                use_container_width=True,
+                num_rows="dynamic",
+                key=f"editor_{target_job['id']}"
+            )
+            target_job['data'] = edited_data
 
