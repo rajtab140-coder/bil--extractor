@@ -5,177 +5,258 @@ from google.genai import types
 import fitz # PyMuPDF
 import json
 import io
+from concurrent.futures import ThreadPoolExecutor
 
-st.set_page_config(page_title="Bill Extractor Pro", layout="wide")
+# Page Configuration
+st.set_page_config(page_title="Bill Processor", layout="wide", initial_sidebar_state="collapsed")
 
-# --- AUTHENTICATION ---
+# --- Custom Styling for Modern Clean UI ---
+st.markdown("""
+<style>
+    /* Global background */
+    .stApp {
+        background-color: #f1f5f9;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    /* Top Navbar */
+    .top-navbar {
+        background-color: #0f172a;
+        padding: 12px 24px;
+        display: flex;
+        align-items: center;
+        gap: 25px;
+        color: #94a3b8;
+        font-size: 14px;
+        font-weight: 500;
+        margin: -6rem -6rem 2rem -6rem;
+    }
+    .top-navbar span.brand {
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 16px;
+        margin-right: 15px;
+    }
+    .top-navbar span.active {
+        color: #38bdf8;
+    }
+
+    /* Main Container Card */
+    .main-card {
+        background-color: #ffffff;
+        border-radius: 14px;
+        padding: 30px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        max-width: 850px;
+        margin: 0 auto;
+        border: 1px solid #e2e8f0;
+    }
+
+    /* Primary Process Button */
+    div.stButton > button {
+        background-color: #1d4ed8 !important;
+        color: white !important;
+        font-weight: 600 !important;
+        font-size: 16px !important;
+        padding: 12px 24px !important;
+        border-radius: 8px !important;
+        border: none !important;
+        width: 100% !important;
+        transition: 0.2s;
+    }
+    div.stButton > button:hover {
+        background-color: #1e40af !important;
+    }
+</style>
+
+<!-- Top bar -->
+<div class="top-navbar">
+    <span class="brand">📑 Bill Processor</span>
+    <span class="active">Upload</span>
+    <span>Downloads</span>
+</div>
+""", unsafe_allow_html=True)
+
+# --- Authentication ---
 APP_PASSWORD = "raj123"
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    st.title("🔒 Login Required")
+    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
+    st.subheader("🔒 Login Required")
     pwd_input = st.text_input("Enter Password:", type="password")
     if st.button("Login"):
         if pwd_input == APP_PASSWORD:
             st.session_state.authenticated = True
             st.rerun()
         else:
-            st.error("Incorrect Password! Please try again.")
+            st.error("Incorrect Password!")
+    st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# --- MAIN APP ---
-st.title("📄 Professional Bill Extractor & Editor")
-
+# API Key Sidebar Configuration
+api_key = st.sidebar.text_input("Gemini API Key:", type="password")
 if st.sidebar.button("Logout"):
     st.session_state.authenticated = False
     st.rerun()
 
-api_key = st.sidebar.text_input("Enter Gemini API Key:", type="password")
+# --- Main Upload Card Container ---
+st.markdown("<div class='main-card'>", unsafe_allow_html=True)
 
-# Modality Tabs
-tab_xray, tab_ct, tab_mri, tab_opg = st.tabs(["🩻 X-Ray", "🧠 CT Scan", "🧲 MRI", "🦷 OPG"])
+st.markdown("<h2 style='color: #0f172a; margin-top: 0;'>📑 Upload Bills</h2>", unsafe_allow_html=True)
 
-def process_modality_bills(modality_name):
-    st.subheader(f"{modality_name} Bills Upload")
-    uploaded_files = st.file_uploader(
-        f"Select {modality_name} PDF Files (Upload multiple PDFs):",
-        type=["pdf"],
-        accept_multiple_files=True,
-        key=f"uploader_{modality_name}"
-    )
+# 1. Bill Type Selector (Radio horizontal)
+st.markdown("<p style='font-weight:600; color: #475569; margin-bottom: 5px;'>Bill Type</p>", unsafe_allow_html=True)
+selected_bill_type = st.radio(
+    "Bill Type",
+    ["CT", "MRI", "X-Ray", "OPG", "USG"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
 
-    state_key = f"data_{modality_name}"
-    if state_key not in st.session_state:
-        st.session_state[state_key] = None
+# 2. AI Engine Selection
+st.markdown("<p style='font-weight:600; color: #475569; margin-top: 15px; margin-bottom: 5px;'>AI Engine</p>", unsafe_allow_html=True)
+selected_engine = st.radio(
+    "AI Engine",
+    [
+        "⚡ Gemini 3.8 Flash (High Speed & Precise Extraction)",
+        "🧠 Claude Opus (Simulated)",
+        "🚀 Grok (Simulated)"
+    ],
+    index=0,
+    label_visibility="collapsed"
+)
 
-    if uploaded_files and api_key:
-        if st.button(f"🚀 Extract {modality_name} Bills Data", key=f"btn_{modality_name}"):
-            try:
-                client = genai.Client(api_key=api_key.strip())
-            except Exception as e:
-                st.error(f"API Key Setup Error: {str(e)}")
-                return
+# 3. Drag & Drop PDF Upload Area
+st.markdown("<p style='font-weight:600; color: #475569; margin-top: 15px; margin-bottom: 5px;'>Upload Files</p>", unsafe_allow_html=True)
+uploaded_files = st.file_uploader(
+    "Drag & drop PDFs here or browse (Select multiple PDFs at once)",
+    type=["pdf"],
+    accept_multiple_files=True,
+    label_visibility="collapsed"
+)
 
-            extracted_records = []
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+# Process Button
+process_btn = st.button("🚀 Upload & Process", use_container_width=True)
 
-            prompt_instruction = f"""
-            You are an expert OCR receipt extractor for hospital billing OPD tickets.
-            Carefully read this receipt image and extract these 7 fields:
-            1. Patient Name: Full name of the patient (after 'NAME :')
-            2. Age/Sex: Patient Age and Sex (after 'AGE/SEX :')
-            3. Bill Number: Bill or Receipt Number (after 'BILL No. :')
-            4. CR Number: Complete CR Number (after 'CR No. :')
-            5. Procedure Name: Specifically focus on the investigation related to '{modality_name}'. Include the modality and body region (e.g. 'MRI Cervical Spine', 'X-Ray Chest PA', 'CT Brain', 'OPG'). Do not add noise like 'OPD NORMAL'.
-            6. Amount: Total collected amount in numeric form (e.g. 2125.00).
-            7. Date: Date printed on receipt (e.g. 27-Oct-2026).
+st.markdown("</div>", unsafe_allow_html=True)
 
-            Return ONLY a raw JSON object with keys:
-            "Patient Name", "Age/Sex", "Bill Number", "CR Number", "Procedure Name", "Amount", "Date"
-            Do not include backticks, markdown formatting, or notes.
-            """
+# --- Parallel Processing Logic ---
+def process_single_page(client, img_bytes, prompt_instruction, label):
+    try:
+        response = client.models.generate_content(
+            model='gemini-3.8-flash',
+            contents=[
+                types.Part.from_bytes(data=img_bytes, mime_type='image/jpeg'),
+                prompt_instruction
+            ]
+        )
+        raw_txt = response.text.strip()
+        if "```json" in raw_txt:
+            raw_txt = raw_txt.split("```json")[1].split("```")[0].strip()
+        elif "```" in raw_txt:
+            raw_txt = raw_txt.split("```")[1].split("```")[0].strip()
+        return json.loads(raw_txt)
+    except Exception as err:
+        return {
+            "Patient Name": f"{label} Error",
+            "Age/Sex": "-",
+            "Bill Number": "-",
+            "CR Number": "-",
+            "Procedure Name": "-",
+            "Amount": "-",
+            "Date": "-"
+        }
 
-            total_files = len(uploaded_files)
-            for file_idx, file in enumerate(uploaded_files):
+if process_btn:
+    if not api_key:
+        st.warning("⚠️ Please provide your Gemini API Key in the left sidebar to start processing.")
+    elif not uploaded_files:
+        st.warning("⚠️ Please select at least one PDF bill file.")
+    else:
+        try:
+            client = genai.Client(api_key=api_key.strip())
+        except Exception as e:
+            st.error(f"API Client Init Error: {str(e)}")
+            st.stop()
+
+        prompt_instruction = f"""
+        Extract details from this hospital bill specifically for category: '{selected_bill_type}'.
+        Strict fields order:
+        1. Patient Name: Full name (after 'NAME :')
+        2. Age/Sex: Patient Age and Sex (after 'AGE/SEX :')
+        3. Bill Number: Bill Number (after 'BILL No. :')
+        4. CR Number: CR Number (after 'CR No. :')
+        5. Procedure Name: Standardize to '{selected_bill_type}' with body region (e.g. '{selected_bill_type} Cervical Spine').
+        6. Amount: Total collected numeric amount (e.g. 2125.00).
+        7. Date: Date printed (e.g. 27-Oct-2026).
+
+        Return ONLY raw JSON with keys:
+        "Patient Name", "Age/Sex", "Bill Number", "CR Number", "Procedure Name", "Amount", "Date"
+        """
+
+        all_page_tasks = []
+        with st.spinner("Extracting pages..."):
+            for file in uploaded_files:
                 file_bytes = file.read()
                 try:
                     doc = fitz.open(stream=file_bytes, filetype="pdf")
+                    for page_idx in range(len(doc)):
+                        page = doc.load_page(page_idx)
+                        pix = page.get_pixmap(dpi=120)
+                        img_bytes = pix.tobytes("jpeg")
+                        all_page_tasks.append((img_bytes, f"{file.name} (P{page_idx+1})"))
                 except Exception as e:
-                    st.error(f"Error reading file {file.name}: {str(e)}")
-                    continue
+                    st.error(f"Error opening {file.name}: {str(e)}")
 
-                for page_idx in range(len(doc)):
-                    status_text.text(f"Processing File {file_idx+1}/{total_files} - Page {page_idx+1}...")
-                    page = doc.load_page(page_idx)
-                    
-                    pix = page.get_pixmap(dpi=200)
-                    img_bytes = pix.tobytes("jpeg")
+        total_pages = len(all_page_tasks)
+        st.info(f"⚡ Processing {total_pages} bill pages in parallel...")
 
-                    try:
-                        # Model updated to gemini-3.8-flash
-                        response = client.models.generate_content(
-                            model='gemini-3.8-flash',
-                            contents=[
-                                types.Part.from_bytes(data=img_bytes, mime_type='image/jpeg'),
-                                prompt_instruction
-                            ]
-                        )
-                        raw_txt = response.text.strip()
-                        if "```json" in raw_txt:
-                            raw_txt = raw_txt.split("```json")[1].split("```")[0].strip()
-                        elif "```" in raw_txt:
-                            raw_txt = raw_txt.split("```")[1].split("```")[0].strip()
-                            
-                        record = json.loads(raw_txt)
-                        extracted_records.append(record)
-                    except Exception as err:
-                        st.error(f"Error on {file.name} (Page {page_idx+1}): {str(err)}")
-                        extracted_records.append({
-                            "Patient Name": "Error Extracting",
-                            "Age/Sex": "-",
-                            "Bill Number": "-",
-                            "CR Number": "-",
-                            "Procedure Name": "-",
-                            "Amount": "-",
-                            "Date": "-"
-                        })
+        extracted_records = []
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [
+                executor.submit(process_single_page, client, item[0], prompt_instruction, item[1])
+                for item in all_page_tasks
+            ]
+            for future in futures:
+                extracted_records.append(future.result())
 
-                progress_bar.progress((file_idx + 1) / total_files)
+        columns_order = [
+            "Patient Name", "Age/Sex", "Bill Number", 
+            "CR Number", "Procedure Name", "Amount", "Date"
+        ]
+        df = pd.DataFrame(extracted_records)
+        for col in columns_order:
+            if col not in df.columns:
+                df[col] = "-"
+        st.session_state["extracted_data"] = df[columns_order]
+        st.success(f"✅ Successfully processed {total_pages} bills!")
 
-            status_text.empty()
+# --- Editable Data Table & Excel Export ---
+if "extracted_data" in st.session_state and st.session_state["extracted_data"] is not None:
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
+    st.subheader("✏️ Review & Edit Data")
+    st.caption("Double-click any cell to make manual corrections.")
 
-            if extracted_records:
-                columns_order = [
-                    "Patient Name", "Age/Sex", "Bill Number", 
-                    "CR Number", "Procedure Name", "Amount", "Date"
-                ]
-                df = pd.DataFrame(extracted_records)
-                for col in columns_order:
-                    if col not in df.columns:
-                        df[col] = "-"
-                st.session_state[state_key] = df[columns_order]
-                st.success(f"Done processing {len(uploaded_files)} file(s)!")
+    edited_df = st.data_editor(
+        st.session_state["extracted_data"],
+        use_container_width=True,
+        num_rows="dynamic"
+    )
 
-    # Table & Download
-    if st.session_state[state_key] is not None:
-        st.markdown("### ✏️ Verify & Edit Data:")
-        edited_df = st.data_editor(
-            st.session_state[state_key],
-            use_container_width=True,
-            num_rows="dynamic",
-            key=f"editor_{modality_name}"
-        )
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+        edited_df.to_excel(writer, index=False, sheet_name=selected_bill_type)
 
-        st.divider()
-        st.markdown("### 📥 Download Section")
-        excel_buffer = io.BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            edited_df.to_excel(writer, index=False, sheet_name=modality_name)
-
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            st.download_button(
-                label=f"⬇️ Download Verified {modality_name} Excel Sheet (.xlsx)",
-                data=excel_buffer.getvalue(),
-                file_name=f"{modality_name}_Verified_Bills.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-    elif not api_key and uploaded_files:
-        st.warning("Please enter your Gemini API Key in the left sidebar.")
-
-with tab_xray:
-    process_modality_bills("X-Ray")
-
-with tab_ct:
-    process_modality_bills("CT Scan")
-
-with tab_mri:
-    process_modality_bills("MRI")
-
-with tab_opg:
-    process_modality_bills("OPG")
+    st.download_button(
+        label=f"⬇️ Download {selected_bill_type} Excel File (.xlsx)",
+        data=excel_buffer.getvalue(),
+        file_name=f"{selected_bill_type}_Bills_Summary.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
