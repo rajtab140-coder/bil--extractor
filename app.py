@@ -56,7 +56,7 @@ FIELDS = [
 ]
 CATEGORIES = ["X-Ray", "CT Scan", "MRI", "OPG", "USG"]
 DB_PATH = os.getenv("NEXUS_DB_PATH", "nexus_jobs.sqlite3")
-MODEL_DEFAULT = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL_DEFAULT = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 MAX_PDF_MB = int(os.getenv("MAX_PDF_MB", "40"))
 MAX_PAGES_PER_PDF = 50
 
